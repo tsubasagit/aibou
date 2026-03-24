@@ -1,0 +1,15 @@
+{
+  "name": "aibou",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AIが同僚になるセルフホスト型チャットツール",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "keywords": [],
+  "author": "AppTalentHub Inc.",
+  "license": "MIT"
+}
