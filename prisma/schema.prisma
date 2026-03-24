@@ -1,0 +1,233 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// ユーザー
+// ============================================
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String   // bcrypt hash
+  displayName String   @map("display_name")
+  avatarUrl   String?  @map("avatar_url")
+  role        Role     @default(MEMBER)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // ワークスペース
+  ownedWorkspaces    Workspace[]       @relation("WorkspaceOwner")
+  workspaceMembers   WorkspaceMember[]
+
+  // チャンネル
+  createdChannels    Channel[]         @relation("ChannelCreator")
+  channelMembers     ChannelMember[]
+
+  // メッセージ
+  messages           Message[]
+
+  // DM
+  dmMembers          DmMember[]
+
+  // ファイル
+  files              File[]
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+  GUEST
+}
+
+// ============================================
+// ワークスペース（マルチテナント）
+// ============================================
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  ownerId   String   @map("owner_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  owner    User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  members  WorkspaceMember[]
+  channels Channel[]
+  dms      DirectMessage[]
+  invites  Invite[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  workspaceId String    @map("workspace_id")
+  userId      String    @map("user_id")
+  role        Role      @default(MEMBER)
+  joinedAt    DateTime  @default(now()) @map("joined_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@map("workspace_members")
+}
+
+// ============================================
+// 招待リンク
+// ============================================
+model Invite {
+  id          String    @id @default(cuid())
+  workspaceId String    @map("workspace_id")
+  token       String    @unique @default(cuid())
+  expiresAt   DateTime  @map("expires_at")
+  usedAt      DateTime? @map("used_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("invites")
+}
+
+// ============================================
+// チャンネル
+// ============================================
+model Channel {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  name        String
+  description String?
+  isPrivate   Boolean  @default(false) @map("is_private")
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator     User            @relation("ChannelCreator", fields: [createdBy], references: [id])
+  members     ChannelMember[]
+  messages    Message[]
+  aiSummaries AiSummary[]
+
+  @@unique([workspaceId, name])
+  @@map("channels")
+}
+
+model ChannelMember {
+  channelId  String    @map("channel_id")
+  userId     String    @map("user_id")
+  joinedAt   DateTime  @default(now()) @map("joined_at")
+  lastReadAt DateTime? @map("last_read_at")
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([channelId, userId])
+  @@map("channel_members")
+}
+
+// ============================================
+// メッセージ
+// ============================================
+model Message {
+  id        String   @id @default(cuid())
+  channelId String   @map("channel_id")
+  userId    String   @map("user_id")
+  content   String
+  threadId  String?  @map("thread_id")
+  isAi      Boolean  @default(false) @map("is_ai")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  channel  Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id])
+  parent   Message?  @relation("Thread", fields: [threadId], references: [id])
+  replies  Message[] @relation("Thread")
+  files    File[]
+  reactions Reaction[]
+
+  @@index([channelId, createdAt])
+  @@map("messages")
+}
+
+// ============================================
+// リアクション
+// ============================================
+model Reaction {
+  id        String   @id @default(cuid())
+  messageId String   @map("message_id")
+  userId    String   @map("user_id")
+  emoji     String
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@map("reactions")
+}
+
+// ============================================
+// ダイレクトメッセージ
+// ============================================
+model DirectMessage {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members   DmMember[]
+
+  @@map("direct_messages")
+}
+
+model DmMember {
+  dmId   String @map("dm_id")
+  userId String @map("user_id")
+
+  dm   DirectMessage @relation(fields: [dmId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([dmId, userId])
+  @@map("dm_members")
+}
+
+// ============================================
+// ファイル
+// ============================================
+model File {
+  id        String   @id @default(cuid())
+  messageId String   @map("message_id")
+  userId    String   @map("user_id")
+  filename  String
+  url       String
+  size      Int
+  mimeType  String   @map("mime_type")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@map("files")
+}
+
+// ============================================
+// AI要約
+// ============================================
+model AiSummary {
+  id          String   @id @default(cuid())
+  channelId   String   @map("channel_id")
+  summary     String
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+  tokenCount  Int      @default(0) @map("token_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([channelId, periodEnd])
+  @@map("ai_summaries")
+}

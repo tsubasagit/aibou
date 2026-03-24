@@ -10,3 +10,5 @@ out/
 Thumbs.db
 tsconfig.tsbuildinfo
 .next/
+
+/src/generated/prisma
