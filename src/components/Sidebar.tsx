@@ -11,7 +11,10 @@ interface SidebarProps {
   activeChannelId: string | null;
   onSelectChannel: (id: string) => void;
   onLogout: () => void;
+  onCreateChannel: () => void;
+  onInvite: () => void;
   displayName: string;
+  workspaceName: string;
 }
 
 export default function Sidebar({
@@ -19,23 +22,37 @@ export default function Sidebar({
   activeChannelId,
   onSelectChannel,
   onLogout,
+  onCreateChannel,
+  onInvite,
   displayName,
+  workspaceName,
 }: SidebarProps) {
   return (
     <div className="flex h-full w-60 flex-col bg-slate-800 text-white">
-      {/* ヘッダー */}
-      <div className="flex items-center gap-2 border-b border-slate-700 px-4 py-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#538bb0]">
-          <span className="text-sm font-bold">A</span>
+      {/* ワークスペースヘッダー */}
+      <div className="border-b border-slate-700 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#538bb0]">
+            <span className="text-sm font-bold">A</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold">{workspaceName}</p>
+          </div>
         </div>
-        <span className="font-bold">Aibou</span>
       </div>
 
       {/* チャンネル一覧 */}
       <div className="flex-1 overflow-y-auto px-2 py-3">
-        <p className="mb-2 px-2 text-xs font-semibold uppercase text-slate-400">
-          チャンネル
-        </p>
+        <div className="mb-2 flex items-center justify-between px-2">
+          <p className="text-xs font-semibold uppercase text-slate-400">チャンネル</p>
+          <button
+            onClick={onCreateChannel}
+            className="text-slate-400 hover:text-white text-lg leading-none"
+            title="チャンネル作成"
+          >
+            +
+          </button>
+        </div>
         {channels.map((ch) => (
           <button
             key={ch.id}
@@ -50,6 +67,17 @@ export default function Sidebar({
             {ch.name}
           </button>
         ))}
+      </div>
+
+      {/* アクション */}
+      <div className="border-t border-slate-700 px-3 py-2">
+        <button
+          onClick={onInvite}
+          className="mb-2 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-300 hover:bg-slate-700"
+        >
+          <span className="text-slate-400">+</span>
+          メンバーを招待
+        </button>
       </div>
 
       {/* ユーザー情報 */}

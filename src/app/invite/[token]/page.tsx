@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 
-export default function SignupPage() {
+export default function InvitePage() {
   const router = useRouter();
+  const params = useParams();
+  const token = params.token as string;
+
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [workspaceName, setWorkspaceName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -18,14 +20,13 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/signup", {
+      const res = await fetch("/api/auth/signup-invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, displayName, workspaceName }),
+        body: JSON.stringify({ email, password, displayName, inviteToken: token }),
       });
 
       const data = await res.json();
-
       if (!res.ok) {
         setError(data.error);
         return;
@@ -47,29 +48,13 @@ export default function SignupPage() {
             <span className="text-2xl font-bold text-white">A</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-800">Aibou</h1>
-          <p className="mt-1 text-sm text-slate-500">アカウント作成</p>
+          <p className="mt-1 text-sm text-slate-500">ワークスペースに参加</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-              {error}
-            </div>
+            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>
           )}
-
-          <div>
-            <label htmlFor="workspaceName" className="block text-sm font-medium text-slate-700">
-              ワークスペース名
-            </label>
-            <input
-              id="workspaceName"
-              type="text"
-              value={workspaceName}
-              onChange={(e) => setWorkspaceName(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-800 placeholder-slate-400 focus:border-[#538bb0] focus:outline-none focus:ring-1 focus:ring-[#538bb0]"
-              placeholder="AppTalentHub（省略可）"
-            />
-          </div>
 
           <div>
             <label htmlFor="displayName" className="block text-sm font-medium text-slate-700">
@@ -82,7 +67,6 @@ export default function SignupPage() {
               onChange={(e) => setDisplayName(e.target.value)}
               required
               className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-800 placeholder-slate-400 focus:border-[#538bb0] focus:outline-none focus:ring-1 focus:ring-[#538bb0]"
-              placeholder="つばさ"
             />
           </div>
 
@@ -97,7 +81,6 @@ export default function SignupPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-800 placeholder-slate-400 focus:border-[#538bb0] focus:outline-none focus:ring-1 focus:ring-[#538bb0]"
-              placeholder="you@example.com"
             />
           </div>
 
@@ -122,16 +105,9 @@ export default function SignupPage() {
             disabled={loading}
             className="w-full rounded-lg bg-[#538bb0] px-4 py-2 font-semibold text-white transition-colors hover:bg-[#3d6f94] disabled:opacity-50"
           >
-            {loading ? "作成中..." : "アカウント作成"}
+            {loading ? "参加中..." : "参加する"}
           </button>
         </form>
-
-        <p className="mt-6 text-center text-sm text-slate-500">
-          既にアカウントをお持ちの方は{" "}
-          <a href="/login" className="font-medium text-[#538bb0] hover:underline">
-            ログイン
-          </a>
-        </p>
       </div>
     </div>
   );

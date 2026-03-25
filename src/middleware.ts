@@ -5,7 +5,7 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "aibou-dev-secret-change-in-production"
 );
 
-const publicPaths = ["/login", "/signup", "/api/auth/login", "/api/auth/signup"];
+const publicPaths = ["/login", "/signup", "/invite", "/api/auth/login", "/api/auth/signup", "/api/auth/signup-invite"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
