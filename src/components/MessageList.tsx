@@ -6,9 +6,10 @@ import type { ChatMessage } from "@/types/socket";
 interface MessageListProps {
   messages: ChatMessage[];
   currentUserId: string;
+  onEmailReply?: (message: ChatMessage) => void;
 }
 
-export default function MessageList({ messages, currentUserId }: MessageListProps) {
+export default function MessageList({ messages, currentUserId, onEmailReply }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -88,6 +89,16 @@ export default function MessageList({ messages, currentUserId }: MessageListProp
               <p className="whitespace-pre-wrap break-words text-sm text-slate-700">
                 {msg.content}
               </p>
+
+              {/* メール返信ボタン */}
+              {isEmail && onEmailReply && (
+                <button
+                  onClick={() => onEmailReply(msg)}
+                  className="mt-1 text-xs text-amber-600 hover:text-amber-800 hover:underline"
+                >
+                  {"\u2709"} メールで返信
+                </button>
+              )}
             </div>
           </div>
         );

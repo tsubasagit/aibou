@@ -9,6 +9,7 @@ import MemberPanel from "@/components/MemberPanel";
 import CreateChannelModal from "@/components/CreateChannelModal";
 import InviteModal from "@/components/InviteModal";
 import EmailConfigModal from "@/components/EmailConfigModal";
+import EmailReplyModal from "@/components/EmailReplyModal";
 import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket";
 import type { ChatMessage } from "@/types/socket";
 
@@ -55,6 +56,8 @@ export default function Home() {
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [showEmailConfig, setShowEmailConfig] = useState(false);
+  const [showEmailReply, setShowEmailReply] = useState(false);
+  const [replyToMessage, setReplyToMessage] = useState<ChatMessage | null>(null);
   const [showMembers, setShowMembers] = useState(false);
 
   // ユーザー情報取得
@@ -231,7 +234,14 @@ export default function Home() {
           <div className="flex flex-1 flex-col">
             {activeChannelId ? (
               <>
-                <MessageList messages={messages} currentUserId={user.id} />
+                <MessageList
+                  messages={messages}
+                  currentUserId={user.id}
+                  onEmailReply={(msg) => {
+                    setReplyToMessage(msg);
+                    setShowEmailReply(true);
+                  }}
+                />
                 <MessageInput onSend={handleSend} disabled={!connected} />
               </>
             ) : (
@@ -267,12 +277,21 @@ export default function Home() {
         </>
       )}
       {activeChannelId && (
-        <EmailConfigModal
-          open={showEmailConfig}
-          onClose={() => setShowEmailConfig(false)}
-          channelId={activeChannelId}
-          onSaved={fetchChannels}
-        />
+        <>
+          <EmailConfigModal
+            open={showEmailConfig}
+            onClose={() => setShowEmailConfig(false)}
+            channelId={activeChannelId}
+            onSaved={fetchChannels}
+          />
+          <EmailReplyModal
+            open={showEmailReply}
+            onClose={() => { setShowEmailReply(false); setReplyToMessage(null); }}
+            channelId={activeChannelId}
+            replyTo={replyToMessage}
+            onSent={fetchChannels}
+          />
+        </>
       )}
     </div>
   );
