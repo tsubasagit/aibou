@@ -4,6 +4,7 @@ interface Channel {
   id: string;
   name: string;
   isPrivate: boolean;
+  hasEmail?: boolean;
 }
 
 interface SidebarProps {
@@ -63,7 +64,7 @@ export default function Sidebar({
                 : "text-slate-300 hover:bg-slate-700"
             }`}
           >
-            <span className="mr-2 text-slate-400">{ch.isPrivate ? "🔒" : "#"}</span>
+            <span className="mr-2 text-slate-400">{ch.hasEmail ? "\u2709" : ch.isPrivate ? "\uD83D\uDD12" : "#"}</span>
             {ch.name}
           </button>
         ))}

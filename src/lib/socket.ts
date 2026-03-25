@@ -7,26 +7,36 @@ type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 let socket: TypedSocket | null = null;
 
-export function getSocket(): TypedSocket {
-  if (!socket) {
-    socket = io({
-      path: "/api/socketio",
-      autoConnect: false,
-    });
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+
+export async function connectSocket(): Promise<TypedSocket> {
+  if (socket?.connected) return socket;
+
+  // サーバーからSocket用トークンを取得
+  const res = await fetch("/api/auth/socket-token");
+  const { token } = await res.json();
+
+  if (socket) {
+    socket.auth = { token };
+    socket.connect();
+    return socket;
   }
+
+  socket = io(SOCKET_URL, {
+    autoConnect: true,
+    auth: { token },
+  });
+
   return socket;
 }
 
-export function connectSocket(): TypedSocket {
-  const s = getSocket();
-  if (!s.connected) {
-    s.connect();
-  }
-  return s;
+export function getSocket(): TypedSocket | null {
+  return socket;
 }
 
 export function disconnectSocket() {
-  if (socket?.connected) {
+  if (socket) {
     socket.disconnect();
+    socket = null;
   }
 }

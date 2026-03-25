@@ -8,7 +8,8 @@ import MessageInput from "@/components/MessageInput";
 import MemberPanel from "@/components/MemberPanel";
 import CreateChannelModal from "@/components/CreateChannelModal";
 import InviteModal from "@/components/InviteModal";
-import { connectSocket, disconnectSocket } from "@/lib/socket";
+import EmailConfigModal from "@/components/EmailConfigModal";
+import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket";
 import type { ChatMessage } from "@/types/socket";
 
 interface User {
@@ -23,6 +24,8 @@ interface Channel {
   name: string;
   description: string | null;
   isPrivate: boolean;
+  hasEmail?: boolean;
+  emailAddress?: string | null;
 }
 
 interface Workspace {
@@ -51,6 +54,7 @@ export default function Home() {
   // モーダル状態
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  const [showEmailConfig, setShowEmailConfig] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
 
   // ユーザー情報取得
@@ -68,21 +72,20 @@ export default function Home() {
   const fetchChannels = useCallback(async () => {
     if (!user) return;
 
-    // ワークスペース取得
     const wsRes = await fetch("/api/workspaces");
     const wsData = await wsRes.json();
     if (wsData.workspace) {
       setWorkspace(wsData.workspace);
     }
 
-    // チャンネル取得
     const chRes = await fetch("/api/channels");
     const chData = await chRes.json();
-    setChannels(chData.channels || []);
-    if (chData.channels?.length > 0 && !activeChannelId) {
-      setActiveChannelId(chData.channels[0].id);
+    const chs = chData.channels || [];
+    setChannels(chs);
+    if (chs.length > 0) {
+      setActiveChannelId((prev) => prev || chs[0].id);
     }
-  }, [user, activeChannelId]);
+  }, [user]);
 
   useEffect(() => {
     fetchChannels();
@@ -100,16 +103,20 @@ export default function Home() {
   useEffect(() => {
     if (!user) return;
 
-    const socket = connectSocket();
+    let cancelled = false;
 
-    socket.on("connect", () => setConnected(true));
-    socket.on("disconnect", () => setConnected(false));
-
-    socket.on("message:new", (msg) => {
-      setMessages((prev) => [...prev, msg]);
+    connectSocket().then((socket) => {
+      if (cancelled) return;
+      socket.on("connect", () => setConnected(true));
+      socket.on("disconnect", () => setConnected(false));
+      socket.on("message:new", (msg) => {
+        setMessages((prev) => [...prev, msg]);
+      });
+      if (socket.connected) setConnected(true);
     });
 
     return () => {
+      cancelled = true;
       disconnectSocket();
       setConnected(false);
     };
@@ -119,7 +126,9 @@ export default function Home() {
   useEffect(() => {
     if (!activeChannelId || !connected) return;
 
-    const socket = connectSocket();
+    const socket = getSocket();
+    if (!socket) return;
+
     socket.emit("channel:join", activeChannelId);
 
     fetch(`/api/channels/${activeChannelId}/messages`)
@@ -134,7 +143,8 @@ export default function Home() {
   const handleSend = useCallback(
     (content: string) => {
       if (!activeChannelId || !connected) return;
-      const socket = connectSocket();
+      const socket = getSocket();
+      if (!socket) return;
       socket.emit("message:send", { channelId: activeChannelId, content });
     },
     [activeChannelId, connected]
@@ -182,8 +192,20 @@ export default function Home() {
             {activeChannel?.description && (
               <p className="text-xs text-slate-500">{activeChannel.description}</p>
             )}
+            {activeChannel?.hasEmail && activeChannel.emailAddress && (
+              <p className="text-xs text-amber-600">{activeChannel.emailAddress} のメールを表示中</p>
+            )}
           </div>
           <div className="flex items-center gap-4">
+            {activeChannelId && user.role === "ADMIN" && (
+              <button
+                onClick={() => setShowEmailConfig(true)}
+                className={`text-sm hover:text-slate-700 ${activeChannel?.hasEmail ? "text-amber-500" : "text-slate-400"}`}
+                title="メール連携設定"
+              >
+                {"\u2709"}
+              </button>
+            )}
             <button
               onClick={() => setShowMembers((v) => !v)}
               className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
@@ -243,6 +265,14 @@ export default function Home() {
             workspaceId={workspace.id}
           />
         </>
+      )}
+      {activeChannelId && (
+        <EmailConfigModal
+          open={showEmailConfig}
+          onClose={() => setShowEmailConfig(false)}
+          channelId={activeChannelId}
+          onSaved={fetchChannels}
+        />
       )}
     </div>
   );

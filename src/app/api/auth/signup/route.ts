@@ -31,64 +31,56 @@ export async function POST(request: NextRequest) {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // ユーザー + ワークスペース + #general チャンネルを一括作成
-    const wsName = workspaceName || `${displayName}のワークスペース`;
-    const slug = wsName
-      .toLowerCase()
-      .replace(/[^a-z0-9\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]/g, "-")
-      .replace(/-+/g, "-")
-      .slice(0, 40) + "-" + Date.now().toString(36);
-
+    // 1. ユーザー作成
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         displayName,
         role: "ADMIN",
-        ownedWorkspaces: {
-          create: {
-            name: wsName,
-            slug,
-            members: { create: { userId: undefined as unknown as string } },
-            channels: {
-              create: [
-                {
-                  name: "general",
-                  description: "全体チャンネル",
-                  createdBy: undefined as unknown as string,
-                },
-                {
-                  name: "random",
-                  description: "雑談チャンネル",
-                  createdBy: undefined as unknown as string,
-                },
-              ],
-            },
-          },
-        },
       },
     });
 
-    // リレーションの userId を更新（self-reference workaround）
-    const workspace = await prisma.workspace.findFirst({
-      where: { ownerId: user.id },
-      include: { channels: true },
+    // 2. ワークスペース作成
+    const wsName = workspaceName || `${displayName}のワークスペース`;
+    const slug =
+      wsName
+        .toLowerCase()
+        .replace(/[^a-z0-9\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]/g, "-")
+        .replace(/-+/g, "-")
+        .slice(0, 40) +
+      "-" +
+      Date.now().toString(36);
+
+    const workspace = await prisma.workspace.create({
+      data: {
+        name: wsName,
+        slug,
+        ownerId: user.id,
+      },
     });
 
-    if (workspace) {
-      await prisma.workspaceMember.create({
-        data: { workspaceId: workspace.id, userId: user.id },
-      });
+    // 3. ワークスペースメンバー追加
+    await prisma.workspaceMember.create({
+      data: { workspaceId: workspace.id, userId: user.id },
+    });
 
-      for (const ch of workspace.channels) {
-        await prisma.channel.update({
-          where: { id: ch.id },
-          data: { createdBy: user.id },
-        });
-        await prisma.channelMember.create({
-          data: { channelId: ch.id, userId: user.id },
-        });
-      }
+    // 4. デフォルトチャンネル作成 + メンバー追加
+    for (const ch of [
+      { name: "general", description: "全体チャンネル" },
+      { name: "random", description: "雑談チャンネル" },
+    ]) {
+      const channel = await prisma.channel.create({
+        data: {
+          workspaceId: workspace.id,
+          name: ch.name,
+          description: ch.description,
+          createdBy: user.id,
+        },
+      });
+      await prisma.channelMember.create({
+        data: { channelId: channel.id, userId: user.id },
+      });
     }
 
     const token = await signToken({

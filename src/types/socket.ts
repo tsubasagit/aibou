@@ -25,5 +25,8 @@ export interface ChatMessage {
   content: string;
   threadId: string | null;
   isAi: boolean;
+  isEmail?: boolean;
+  fromEmail?: string;
+  subject?: string | null;
   createdAt: string;
 }

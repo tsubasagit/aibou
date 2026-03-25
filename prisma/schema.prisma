@@ -57,11 +57,12 @@ model Workspace {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  owner    User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
-  members  WorkspaceMember[]
-  channels Channel[]
-  dms      DirectMessage[]
-  invites  Invite[]
+  owner            User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  members          WorkspaceMember[]
+  channels         Channel[]
+  dms              DirectMessage[]
+  invites          Invite[]
+  externalContacts ExternalContact[]
 
   @@map("workspaces")
 }
@@ -108,11 +109,12 @@ model Channel {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creator     User            @relation("ChannelCreator", fields: [createdBy], references: [id])
+  workspace   Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator     User                 @relation("ChannelCreator", fields: [createdBy], references: [id])
   members     ChannelMember[]
   messages    Message[]
   aiSummaries AiSummary[]
+  emailConfig ChannelEmailConfig?
 
   @@unique([workspaceId, name])
   @@map("channels")
@@ -144,12 +146,13 @@ model Message {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  channel  Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  user     User      @relation(fields: [userId], references: [id])
-  parent   Message?  @relation("Thread", fields: [threadId], references: [id])
-  replies  Message[] @relation("Thread")
-  files    File[]
-  reactions Reaction[]
+  channel      Channel       @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id])
+  parent       Message?      @relation("Thread", fields: [threadId], references: [id])
+  replies      Message[]     @relation("Thread")
+  files        File[]
+  reactions    Reaction[]
+  emailMessage EmailMessage?
 
   @@index([channelId, createdAt])
   @@map("messages")
@@ -230,4 +233,93 @@ model AiSummary {
 
   @@index([channelId, periodEnd])
   @@map("ai_summaries")
+}
+
+// ============================================
+// メール連携設定（チャンネルごと）
+// ============================================
+model ChannelEmailConfig {
+  id           String   @id @default(cuid())
+  channelId    String   @unique @map("channel_id")
+
+  // IMAP受信設定
+  imapHost     String   @map("imap_host")
+  imapPort     Int      @default(993) @map("imap_port")
+  imapUser     String   @map("imap_user")
+  imapPass     String   @map("imap_pass") // AES-256-GCM encrypted
+  imapTls      Boolean  @default(true) @map("imap_tls")
+
+  // SMTP送信設定
+  smtpHost     String   @map("smtp_host")
+  smtpPort     Int      @default(587) @map("smtp_port")
+  smtpUser     String   @map("smtp_user")
+  smtpPass     String   @map("smtp_pass") // AES-256-GCM encrypted
+  smtpTls      Boolean  @default(true) @map("smtp_tls")
+
+  // 表示用
+  emailAddress String   @map("email_address")
+  displayName  String?  @map("display_name")
+
+  // ポーリング制御
+  lastSyncUid  String?  @map("last_sync_uid")
+  lastSyncAt   DateTime? @map("last_sync_at")
+  isActive     Boolean  @default(true) @map("is_active")
+
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@map("channel_email_configs")
+}
+
+// ============================================
+// 外部メール連絡先（Aibouアカウント不要）
+// ============================================
+model ExternalContact {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  email       String
+  displayName String   @map("display_name")
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  emailMessages EmailMessage[]
+
+  @@unique([workspaceId, email])
+  @@map("external_contacts")
+}
+
+// ============================================
+// メールメッセージ（メール固有情報）
+// ============================================
+model EmailMessage {
+  id               String         @id @default(cuid())
+  messageId        String         @unique @map("message_id")
+
+  emailMessageId   String?        @map("email_message_id") // RFC Message-ID
+  inReplyTo        String?        @map("in_reply_to")
+  references       String?
+  subject          String?
+  fromEmail        String         @map("from_email")
+  toEmails         String         @map("to_emails")  // JSON array
+  ccEmails         String?        @map("cc_emails")   // JSON array
+  direction        EmailDirection
+
+  externalContactId String?       @map("external_contact_id")
+
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  message          Message         @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  externalContact  ExternalContact? @relation(fields: [externalContactId], references: [id])
+
+  @@index([emailMessageId])
+  @@map("email_messages")
+}
+
+enum EmailDirection {
+  INBOUND
+  OUTBOUND
 }

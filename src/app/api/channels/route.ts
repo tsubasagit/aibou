@@ -23,11 +23,19 @@ export async function GET() {
       description: true,
       isPrivate: true,
       createdAt: true,
+      emailConfig: { select: { isActive: true, emailAddress: true } },
       _count: { select: { members: true } },
     },
   });
 
-  return NextResponse.json({ channels });
+  return NextResponse.json({
+    channels: channels.map((ch) => ({
+      ...ch,
+      hasEmail: !!ch.emailConfig?.isActive,
+      emailAddress: ch.emailConfig?.emailAddress || null,
+      emailConfig: undefined,
+    })),
+  });
 }
 
 // チャンネル作成

@@ -26,6 +26,16 @@ export async function GET(
       user: {
         select: { id: true, displayName: true, avatarUrl: true },
       },
+      emailMessage: {
+        select: {
+          fromEmail: true,
+          subject: true,
+          direction: true,
+          externalContact: {
+            select: { displayName: true },
+          },
+        },
+      },
     },
   });
 
@@ -37,11 +47,14 @@ export async function GET(
       id: m.id,
       channelId: m.channelId,
       userId: m.user.id,
-      displayName: m.user.displayName,
+      displayName: m.emailMessage?.externalContact?.displayName || m.user.displayName,
       avatarUrl: m.user.avatarUrl,
       content: m.content,
       threadId: m.threadId,
       isAi: m.isAi,
+      isEmail: !!m.emailMessage,
+      fromEmail: m.emailMessage?.fromEmail || undefined,
+      subject: m.emailMessage?.subject || undefined,
       createdAt: m.createdAt.toISOString(),
     })),
     nextCursor: hasMore ? items[0]?.id : null,
